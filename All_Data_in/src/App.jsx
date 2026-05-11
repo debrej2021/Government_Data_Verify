@@ -4,6 +4,7 @@ import UnemploymentModule from "./components/UnemploymentModule"
 import PoliticalModule from "./components/PoliticalModule"
 import AspirationalDistrictsModule from "./components/AspirationalDistrictsModule"
 import GlobalFooter from "./components/GlobalFooter"
+import HealthGapsModule from "./components/HealthGapsModule"
 
 function Nav() {
   const linkStyle = ({ isActive }) => ({
@@ -35,6 +36,7 @@ function Nav() {
       <NavLink to="/jobs"      style={linkStyle}>UNEMPLOYMENT</NavLink>
       <NavLink to="/political" style={linkStyle}>POLITICAL</NavLink>
       <NavLink to="/social"    style={linkStyle}>SOCIAL</NavLink>
+      <NavLink to="/health"    style={linkStyle}>HEALTH</NavLink>
     </nav>
   )
 }
@@ -48,6 +50,7 @@ export default function App() {
         <Route path="/jobs"      element={<UnemploymentModule />} />
         <Route path="/political" element={<PoliticalModule />} />
         <Route path="/social"    element={<AspirationalDistrictsModule />} />
+        <Route path="/health" element={<HealthGapsModule />} />
       </Routes>
       <GlobalFooter />
     </BrowserRouter>
