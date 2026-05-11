@@ -1,12 +1,18 @@
 export default function GlobalFooter() {
   const sources = [
-    { label: "MOSPI",       url: "https://mospi.gov.in" },
-    { label: "PLFS",        url: "https://mospi.gov.in/periodic-labour-force-survey-plfs" },
-    { label: "ADR India",   url: "https://adrindia.org" },
-    { label: "NITI Aayog",  url: "https://niti.gov.in" },
-    { label: "ECI",         url: "https://eci.gov.in" },
-    { label: "data.gov.in", url: "https://data.gov.in" },
+    { label: "MOSPI",               url: "https://mospi.gov.in" },
+    { label: "PLFS",                url: "https://mospi.gov.in/periodic-labour-force-survey-plfs" },
+    { label: "ADR India",           url: "https://adrindia.org" },
+    { label: "NITI Aayog",          url: "https://niti.gov.in" },
+    { label: "ECI",                 url: "https://eci.gov.in" },
+    { label: "data.gov.in",         url: "https://data.gov.in" },
     { label: "Champions of Change", url: "https://championsofchange.gov.in" },
+    { label: "HMIS",                url: "https://hmis.mohfw.gov.in" },
+    { label: "NHM",                 url: "https://nhm.gov.in" },
+    { label: "Rural Health Stats",  url: "https://mohfw.gov.in" },
+    { label: "The Lancet",          url: "https://www.thelancet.com" },
+    { label: "ICMR",                url: "https://www.icmr.gov.in" },
+    { label: "NCRB",                url: "https://ncrb.gov.in" },
   ];
 
   return (
@@ -84,7 +90,7 @@ export default function GlobalFooter() {
         fontSize: 10, color: "#2a2a2a",
         letterSpacing: 2,
       }}>
-        <span>FACTS & TRUTH · INSIGHTS.DEBPROD.COM · DATA-DRIVEN. UNFILTERED. INDEPENDENT.</span>
+        <span>FACTS & TRUTH · FACTCHECK.DEBPROD.COM · DATA-DRIVEN. UNFILTERED. INDEPENDENT.</span>
         <span>© {new Date().getFullYear()} · FOR PUBLIC INTEREST</span>
       </div>
     </footer>
