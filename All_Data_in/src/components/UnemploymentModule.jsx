@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend
 } from "recharts";
+import { useSearchParams } from "react-router-dom";
+import ChartToolbar from "./ChartToolbar";
+import { exportCSV, downloadChartPNG } from "../utils/chartExport";
 
-// ─── PLFS State-wise Unemployment Rate (%) — Usual Status (ps+ss)
-// Source: Rajya Sabha Session 266, Q.155, Answered 25 Nov 2024
-// PLFS Annual Reports 2019-20 to 2023-24 (July-June cycle)
 const UNEMPLOYMENT_DATA = [
   { state: "Andhra Pradesh",  y2019: 4.5,  y2020: 7.1,  y2021: 4.3,  y2022: 3.8,  y2023: 3.2 },
   { state: "Assam",           y2019: 7.5,  y2020: 7.0,  y2021: 6.2,  y2022: 5.8,  y2023: 5.1 },
@@ -30,7 +30,6 @@ const UNEMPLOYMENT_DATA = [
   { state: "West Bengal",     y2019: 4.8,  y2020: 6.9,  y2021: 5.2,  y2022: 4.5,  y2023: 4.0 },
 ];
 
-// Top 8 states for trend chart (most interesting stories)
 const TREND_STATES = ["Bihar", "Punjab", "Haryana", "Kerala", "Jharkhand", "Karnataka", "Gujarat", "Maharashtra"];
 
 const TREND_DATA = [
@@ -51,7 +50,6 @@ const YEAR_OPTIONS = [
   { key: "y2023", label: "2023-24", color: "#00c896" },
 ];
 
-// ─── Tooltips ──────────────────────────────────────────────────────────────
 const BarTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   const val = payload[0].value;
@@ -89,15 +87,26 @@ const LineTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────
 export default function UnemploymentModule() {
-  const [tab,       setTab]       = useState("compare");
+  const chartRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightedState = searchParams.get('state');
+
+  const [tab,       setTab]       = useState(searchParams.get('tab') || 'compare');
   const [selYear,   setSelYear]   = useState("y2023");
   const [hovered,   setHovered]   = useState(null);
 
+  const handleTabChange = (t) => {
+    setTab(t);
+    setSearchParams(p => {
+      const n = new URLSearchParams(p);
+      n.set('tab', t);
+      return n;
+    }, { replace: true });
+  };
+
   const yearMeta   = YEAR_OPTIONS.find(y => y.key === selYear);
-  const sortedData = [...UNEMPLOYMENT_DATA]
-    .sort((a, b) => b[selYear] - a[selYear]);
+  const sortedData = [...UNEMPLOYMENT_DATA].sort((a, b) => b[selYear] - a[selYear]);
 
   const avgUR      = (UNEMPLOYMENT_DATA.reduce((s, d) => s + d[selYear], 0) / UNEMPLOYMENT_DATA.length).toFixed(1);
   const maxState   = sortedData[0];
@@ -110,9 +119,6 @@ export default function UnemploymentModule() {
       fontFamily: "'IBM Plex Sans', sans-serif",
       borderTop: "1px solid #1a1a1a",
     }}>
-      {/* <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&family=Bebas+Neue&display=swap" rel="stylesheet" /> */}
-
-      {/* ── Section Header ── */}
       <div style={{
         padding: "28px 40px 20px",
         borderBottom: "1px solid #1a1a1a",
@@ -122,9 +128,7 @@ export default function UnemploymentModule() {
           <div style={{
             fontFamily: "'Bebas Neue', sans-serif",
             fontSize: 36, letterSpacing: 4, color: "#4da6ff", lineHeight: 1
-          }}>
-            UNEMPLOYMENT INDIA
-          </div>
+          }}>UNEMPLOYMENT INDIA</div>
           <div style={{ fontSize: 12, color: "#555", letterSpacing: 3, marginTop: 4 }}>
             STATE-WISE · PLFS USUAL STATUS · 2019–20 TO 2023–24
           </div>
@@ -135,7 +139,6 @@ export default function UnemploymentModule() {
         </div>
       </div>
 
-      {/* ── KPI Strip ── */}
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
         borderBottom: "1px solid #1a1a1a"
@@ -150,33 +153,20 @@ export default function UnemploymentModule() {
             padding: "20px 32px",
             borderRight: i < 3 ? "1px solid #1a1a1a" : "none"
           }}>
-            <div style={{ fontSize: 10, color: "#444", letterSpacing: 3, marginBottom: 6 }}>
-              {kpi.label}
-            </div>
-            <div style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 24, color: kpi.color, letterSpacing: 2
-            }}>
-              {kpi.value}
-            </div>
-            <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
-              {kpi.sub}
-            </div>
+            <div style={{ fontSize: 10, color: "#444", letterSpacing: 3, marginBottom: 6 }}>{kpi.label}</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 24, color: kpi.color, letterSpacing: 2 }}>{kpi.value}</div>
+            <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Tab Nav ── */}
-      <div style={{
-        display: "flex", borderBottom: "1px solid #1a1a1a",
-        padding: "0 40px"
-      }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #1a1a1a", padding: "0 40px" }}>
         {[
           { id: "compare", label: "STATE COMPARISON" },
           { id: "trend",   label: "COVID RECOVERY TREND" },
           { id: "risk",    label: "RISK HEATMAP" },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+          <button key={t.id} onClick={() => handleTabChange(t.id)} style={{
             background: "none", border: "none",
             borderBottom: tab === t.id ? "2px solid #4da6ff" : "2px solid transparent",
             color: tab === t.id ? "#4da6ff" : "#444",
@@ -184,18 +174,32 @@ export default function UnemploymentModule() {
             fontFamily: "'IBM Plex Mono', monospace",
             fontSize: 11, letterSpacing: 2,
             marginBottom: -1, transition: "all 0.15s"
-          }}>
-            {t.label}
-          </button>
+          }}>{t.label}</button>
         ))}
       </div>
 
-      {/* ── Chart Area ── */}
       <div style={{ padding: "32px 40px" }}>
+        {highlightedState && (
+          <div style={{
+            marginBottom: 16, padding: '8px 16px',
+            background: '#0d0d00', border: '1px solid #ff6b0044',
+            borderLeft: '3px solid #ff6b00',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: 10,
+          }}>
+            <span style={{ color: '#ff6b00', letterSpacing: 2 }}>&#9685; HIGHLIGHTING · {highlightedState.toUpperCase()}</span>
+            <button onClick={() => setSearchParams(p => {
+              const n = new URLSearchParams(p); n.delete('state'); return n;
+            }, { replace: true })} style={{
+              background: 'none', border: 'none', color: '#444',
+              cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10
+            }}>✕ CLEAR</button>
+          </div>
+        )}
 
         {tab === "compare" && (
-          <>
-            {/* Year Selector */}
+          <div ref={chartRef}>
+            <ChartToolbar chartRef={chartRef} data={UNEMPLOYMENT_DATA} csvFilename="unemployment-state-data" />
             <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
               {YEAR_OPTIONS.map(y => (
                 <button key={y.key} onClick={() => setSelYear(y.key)} style={{
@@ -206,34 +210,17 @@ export default function UnemploymentModule() {
                   fontFamily: "'IBM Plex Mono', monospace",
                   fontSize: 10, cursor: "pointer", letterSpacing: 1,
                   transition: "all 0.15s"
-                }}>
-                  {y.label}
-                </button>
+                }}>{y.label}</button>
               ))}
-              <span style={{
-                marginLeft: "auto", fontSize: 10, color: "#333",
-                fontFamily: "monospace", alignSelf: "center"
-              }}>
+              <span style={{ marginLeft: "auto", fontSize: 10, color: "#333", fontFamily: "monospace", alignSelf: "center" }}>
                 NATIONAL AVG: {avgUR}%
               </span>
             </div>
-
             <ResponsiveContainer width="100%" height={400}>
               <BarChart data={sortedData} margin={{ top: 0, right: 0, left: 10, bottom: 80 }}>
                 <CartesianGrid stroke="#111" vertical={false} />
-                <XAxis
-                  dataKey="state"
-                  tick={{ fill: "#444", fontSize: 9, fontFamily: "IBM Plex Mono" }}
-                  angle={-45} textAnchor="end" interval={0}
-                  tickLine={false} axisLine={{ stroke: "#1a1a1a" }}
-                />
-                <YAxis
-                  tickFormatter={v => `${v}%`}
-                  tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                  tickLine={false} axisLine={false}
-                  domain={[0, 12]}
-                />
-                {/* Average reference line drawn manually */}
+                <XAxis dataKey="state" tick={{ fill: "#444", fontSize: 9, fontFamily: "IBM Plex Mono" }} angle={-45} textAnchor="end" interval={0} tickLine={false} axisLine={{ stroke: "#1a1a1a" }} />
+                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} domain={[0, 12]} />
                 <Tooltip content={<BarTooltip />} cursor={{ fill: "#111" }} />
                 <Bar dataKey={selYear} name="Unemployment Rate" radius={[2, 2, 0, 0]}>
                   {sortedData.map((d, i) => {
@@ -242,8 +229,10 @@ export default function UnemploymentModule() {
                     return (
                       <Cell
                         key={i}
-                        fill={hovered === i ? baseColor : `${baseColor}55`}
-                        stroke={hovered === i ? baseColor : "transparent"}
+                        fill={highlightedState
+                          ? (d.state === highlightedState ? baseColor : "#222")
+                          : (hovered === i ? baseColor : baseColor + "55")}
+                        stroke={hovered === i && !highlightedState ? baseColor : "transparent"}
                         onMouseEnter={() => setHovered(i)}
                         onMouseLeave={() => setHovered(null)}
                       />
@@ -252,8 +241,6 @@ export default function UnemploymentModule() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-
-            {/* Legend */}
             <div style={{ display: "flex", gap: 24, marginTop: 12, justifyContent: "center" }}>
               {[
                 { color: "#ff4444", label: "HIGH ≥ 8%" },
@@ -266,7 +253,7 @@ export default function UnemploymentModule() {
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )}
 
         {tab === "trend" && (
@@ -280,34 +267,12 @@ export default function UnemploymentModule() {
             <ResponsiveContainer width="100%" height={380}>
               <LineChart data={TREND_DATA} margin={{ top: 0, right: 20, left: 10, bottom: 0 }}>
                 <CartesianGrid stroke="#111" vertical={false} />
-                <XAxis
-                  dataKey="year"
-                  tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                  tickLine={false} axisLine={{ stroke: "#1a1a1a" }}
-                />
-                <YAxis
-                  tickFormatter={v => `${v}%`}
-                  tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                  tickLine={false} axisLine={false}
-                  domain={[0, 12]}
-                />
+                <XAxis dataKey="year" tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={{ stroke: "#1a1a1a" }} />
+                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} domain={[0, 12]} />
                 <Tooltip content={<LineTooltip />} />
-                <Legend
-                  wrapperStyle={{
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10, color: "#555", paddingTop: 16
-                  }}
-                />
+                <Legend wrapperStyle={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, color: "#555", paddingTop: 16 }} />
                 {TREND_STATES.map((state, i) => (
-                  <Line
-                    key={state}
-                    type="monotone"
-                    dataKey={state}
-                    stroke={LINE_COLORS[i]}
-                    strokeWidth={2}
-                    dot={{ r: 3, fill: LINE_COLORS[i] }}
-                    activeDot={{ r: 5 }}
-                  />
+                  <Line key={state} type="monotone" dataKey={state} stroke={LINE_COLORS[i]} strokeWidth={2} dot={{ r: 3, fill: LINE_COLORS[i] }} activeDot={{ r: 5 }} />
                 ))}
               </LineChart>
             </ResponsiveContainer>
@@ -323,68 +288,34 @@ export default function UnemploymentModule() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left", padding: "8px 16px", color: "#444", letterSpacing: 2, fontWeight: 400, borderBottom: "1px solid #1a1a1a" }}>
-                      STATE
-                    </th>
+                    <th style={{ textAlign: "left", padding: "8px 16px", color: "#444", letterSpacing: 2, fontWeight: 400, borderBottom: "1px solid #1a1a1a" }}>STATE</th>
                     {YEAR_OPTIONS.map(y => (
-                      <th key={y.key} style={{
-                        padding: "8px 16px", color: y.color,
-                        letterSpacing: 1, fontWeight: 400,
-                        borderBottom: "1px solid #1a1a1a", textAlign: "center"
-                      }}>
-                        {y.label}
-                      </th>
+                      <th key={y.key} style={{ padding: "8px 16px", color: y.color, letterSpacing: 1, fontWeight: 400, borderBottom: "1px solid #1a1a1a", textAlign: "center" }}>{y.label}</th>
                     ))}
-                    <th style={{ padding: "8px 16px", color: "#444", letterSpacing: 1, fontWeight: 400, borderBottom: "1px solid #1a1a1a", textAlign: "center" }}>
-                      TREND
-                    </th>
+                    <th style={{ padding: "8px 16px", color: "#444", letterSpacing: 1, fontWeight: 400, borderBottom: "1px solid #1a1a1a", textAlign: "center" }}>TREND</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...UNEMPLOYMENT_DATA]
-                    .sort((a, b) => b.y2023 - a.y2023)
-                    .map((d, i) => {
-                      const trend = d.y2023 < d.y2019 ? "↓ IMPROVING" : "↑ WORSENING";
-                      const trendColor = d.y2023 < d.y2019 ? "#00c896" : "#ff4444";
-                      return (
-                        <tr key={i} style={{
-                          background: hovered === i ? "#0f0f0f" : "transparent",
-                          transition: "background 0.1s"
-                        }}
-                          onMouseEnter={() => setHovered(i)}
-                          onMouseLeave={() => setHovered(null)}
-                        >
-                          <td style={{ padding: "10px 16px", color: "#ccc", borderBottom: "1px solid #0d0d0d" }}>
-                            {d.state}
-                          </td>
-                          {YEAR_OPTIONS.map(y => {
-                            const val = d[y.key];
-                            const intensity = Math.min(val / 12, 1);
-                            const r = Math.round(255 * intensity);
-                            const g = Math.round(100 * (1 - intensity));
-                            return (
-                              <td key={y.key} style={{
-                                padding: "10px 16px",
-                                textAlign: "center",
-                                color: `rgb(${r}, ${g + 100}, ${50})`,
-                                background: `rgba(${r}, ${g}, 0, ${intensity * 0.3})`,
-                                borderBottom: "1px solid #0d0d0d",
-                                fontWeight: val >= 8 ? 600 : 400
-                              }}>
-                                {val}%
-                              </td>
-                            );
-                          })}
-                          <td style={{
-                            padding: "10px 16px", textAlign: "center",
-                            color: trendColor, borderBottom: "1px solid #0d0d0d",
-                            fontSize: 10
-                          }}>
-                            {trend}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                  {[...UNEMPLOYMENT_DATA].sort((a, b) => b.y2023 - a.y2023).map((d, i) => {
+                    const trend = d.y2023 < d.y2019 ? "↓ IMPROVING" : "↑ WORSENING";
+                    const trendColor = d.y2023 < d.y2019 ? "#00c896" : "#ff4444";
+                    return (
+                      <tr key={i} style={{ background: hovered === i ? "#0f0f0f" : "transparent", transition: "background 0.1s" }}
+                        onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}>
+                        <td style={{ padding: "10px 16px", color: "#ccc", borderBottom: "1px solid #0d0d0d" }}>{d.state}</td>
+                        {YEAR_OPTIONS.map(y => {
+                          const val = d[y.key];
+                          const intensity = Math.min(val / 12, 1);
+                          const r = Math.round(255 * intensity);
+                          const g = Math.round(100 * (1 - intensity));
+                          return (
+                            <td key={y.key} style={{ padding: "10px 16px", textAlign: "center", color: `rgb(${r}, ${g + 100}, ${50})`, background: `rgba(${r}, ${g}, 0, ${intensity * 0.3})`, borderBottom: "1px solid #0d0d0d", fontWeight: val >= 8 ? 600 : 400 }}>{val}%</td>
+                          );
+                        })}
+                        <td style={{ padding: "10px 16px", textAlign: "center", color: trendColor, borderBottom: "1px solid #0d0d0d", fontSize: 10 }}>{trend}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -392,13 +323,7 @@ export default function UnemploymentModule() {
         )}
       </div>
 
-      {/* ── Footer ── */}
-      <div style={{
-        borderTop: "1px solid #111", padding: "12px 40px",
-        display: "flex", justifyContent: "space-between",
-        fontSize: 10, color: "#333", fontFamily: "'IBM Plex Mono', monospace",
-        letterSpacing: 2
-      }}>
+      <div style={{ borderTop: "1px solid #111", padding: "12px 40px", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#333", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 2 }}>
         <span>SOURCE · PLFS ANNUAL REPORTS 2019-20 TO 2023-24 · MOSPI / RAJYA SABHA Q.155 NOV 2024</span>
         <span>INSIGHTS.DEBPROD.COM</span>
       </div>

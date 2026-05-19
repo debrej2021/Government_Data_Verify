@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell
 } from "recharts";
+import { useSearchParams } from "react-router-dom";
+import ChartToolbar from "./ChartToolbar";
+import { exportCSV, downloadChartPNG } from "../utils/chartExport";
 
 // ─── Embedded fallback data (MOSPI / RBI sourced) ──────────────────────────
 const STATE_GDP_DATA = [
@@ -23,7 +26,6 @@ const STATE_GDP_DATA = [
   { state: "Punjab",        gdp_2022:  683912, gdp_2021:  601437, gdp_2020:  549102 },
 ];
 
-// ─── data.gov.in API ───────────────────────────────────────────────────────
 const RESOURCE_ID = "ab40c054-5031-4376-b52e-9813e776f65e";
 const API_KEY     = import.meta.env.VITE_DATA_GOV_KEY;
 
@@ -50,30 +52,22 @@ async function fetchLiveGDP() {
   const res  = await fetch(url);
   const json = await res.json();
   const records = json.records;
-
-  const sorted = records.sort((a, b) =>
-    a.duration.localeCompare(b.duration)
-  );
-
-  // Use Maharashtra as anchor — only records where it has valid numeric data
+  const sorted = records.sort((a, b) => a.duration.localeCompare(b.duration));
   const clean = sorted.filter(r => parseFloat(r.maharashtra) > 0);
-
   const latest = clean[clean.length - 1];
   const prev1  = clean[clean.length - 2];
   const prev2  = clean[clean.length - 3];
-
   return STATE_KEYS
-  .map(s => ({
-    state:    s.name,
-    gdp_2022: parseFloat((latest[s.id] || "0").replace(/,/g, "")) || 0,
-    gdp_2021: parseFloat((prev1[s.id]  || "0").replace(/,/g, "")) || 0,
-    gdp_2020: parseFloat((prev2[s.id]  || "0").replace(/,/g, "")) || 0,
-    year:     latest.duration,
-  }))
-  .filter(s => s.gdp_2022 > 0);
+    .map(s => ({
+      state:    s.name,
+      gdp_2022: parseFloat((latest[s.id] || "0").replace(/,/g, "")) || 0,
+      gdp_2021: parseFloat((prev1[s.id]  || "0").replace(/,/g, "")) || 0,
+      gdp_2020: parseFloat((prev2[s.id]  || "0").replace(/,/g, "")) || 0,
+      year:     latest.duration,
+    }))
+    .filter(s => s.gdp_2022 > 0);
 }
 
-// ─── Tooltips ──────────────────────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -106,9 +100,12 @@ const GrowthTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────
 export default function IndiaEconomyDashboard() {
-  const [tab,      setTab]      = useState("gdp");
+  const chartRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightedState = searchParams.get('state');
+
+  const [tab,      setTab]      = useState(searchParams.get('tab') || 'gdp');
   const [loading,  setLoading]  = useState(false);
   const [liveMode, setLiveMode] = useState(false);
   const [error,    setError]    = useState(null);
@@ -118,13 +115,21 @@ export default function IndiaEconomyDashboard() {
 
   const displayData = (liveMode && apiData) ? apiData : STATE_GDP_DATA;
 
-  // Recompute growth dynamically from whatever data is displayed
   const growthData = displayData.map(d => ({
     state: d.state.length > 10 ? d.state.slice(0, 10) + "…" : d.state,
     growth: d.gdp_2021 > 0
       ? (((d.gdp_2022 - d.gdp_2021) / d.gdp_2021) * 100).toFixed(1)
       : "0",
   })).sort((a, b) => b.growth - a.growth);
+
+  const handleTabChange = (t) => {
+    setTab(t);
+    setSearchParams(p => {
+      const n = new URLSearchParams(p);
+      n.set('tab', t);
+      return n;
+    }, { replace: true });
+  };
 
   const handleLiveToggle = async () => {
     if (liveMode) { setLiveMode(false); return; }
@@ -150,9 +155,6 @@ export default function IndiaEconomyDashboard() {
       color: "#e0e0e0",
       fontFamily: "'IBM Plex Sans', sans-serif",
     }}>
-      {/* <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&family=Bebas+Neue&display=swap" rel="stylesheet" /> */}
-
-      {/* ── Header ── */}
       <div style={{
         borderBottom: "1px solid #1a1a1a",
         padding: "28px 40px 20px",
@@ -163,9 +165,7 @@ export default function IndiaEconomyDashboard() {
             fontFamily: "'Bebas Neue', sans-serif",
             fontSize: 42, letterSpacing: 4,
             color: "#ff6b00", lineHeight: 1
-          }}>
-            INDIA ECONOMY
-          </div>
+          }}>INDIA ECONOMY</div>
           <div style={{ fontSize: 12, color: "#555", letterSpacing: 3, marginTop: 4 }}>
             STATE-WISE GDP INTELLIGENCE · MOSPI / DATA.GOV.IN
           </div>
@@ -190,7 +190,6 @@ export default function IndiaEconomyDashboard() {
         </div>
       </div>
 
-      {/* ── KPI Strip ── */}
       <div style={{
         display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
         borderBottom: "1px solid #1a1a1a"
@@ -221,7 +220,6 @@ export default function IndiaEconomyDashboard() {
         ))}
       </div>
 
-      {/* ── Tab Nav ── */}
       <div style={{
         display: "flex", borderBottom: "1px solid #1a1a1a",
         padding: "0 40px"
@@ -231,7 +229,7 @@ export default function IndiaEconomyDashboard() {
           { id: "growth", label: "YoY GROWTH RATE" },
           { id: "share",  label: "GDP SHARE %" },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
+          <button key={t.id} onClick={() => handleTabChange(t.id)} style={{
             background: "none", border: "none",
             borderBottom: tab === t.id ? "2px solid #ff6b00" : "2px solid transparent",
             color: tab === t.id ? "#ff6b00" : "#444",
@@ -245,11 +243,28 @@ export default function IndiaEconomyDashboard() {
         ))}
       </div>
 
-      {/* ── Chart Area ── */}
       <div style={{ padding: "32px 40px" }}>
+        {highlightedState && (
+          <div style={{
+            marginBottom: 16, padding: '8px 16px',
+            background: '#0d0d00', border: '1px solid #ff6b0044',
+            borderLeft: '3px solid #ff6b00',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: 10,
+          }}>
+            <span style={{ color: '#ff6b00', letterSpacing: 2 }}>&#9685; HIGHLIGHTING · {highlightedState.toUpperCase()}</span>
+            <button onClick={() => setSearchParams(p => {
+              const n = new URLSearchParams(p); n.delete('state'); return n;
+            }, { replace: true })} style={{
+              background: 'none', border: 'none', color: '#444',
+              cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10
+            }}>✕ CLEAR</button>
+          </div>
+        )}
 
         {tab === "gdp" && (
-          <>
+          <div ref={chartRef}>
+            <ChartToolbar chartRef={chartRef} data={displayData} csvFilename="india-gdp-data" />
             <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 20 }}>
               GROSS STATE DOMESTIC PRODUCT AT CURRENT PRICES · ₹ CRORE · FY {yearLabel}
             </div>
@@ -272,8 +287,10 @@ export default function IndiaEconomyDashboard() {
                   {displayData.map((d, i) => (
                     <Cell
                       key={i}
-                      fill={hovered === i ? "#ff6b00" : "#ff6b0040"}
-                      stroke={hovered === i ? "#ff6b00" : "transparent"}
+                      fill={highlightedState
+                        ? (d.state === highlightedState ? "#ff6b00" : "#ff6b0018")
+                        : (hovered === i ? "#ff6b00" : "#ff6b0040")}
+                      stroke={hovered === i && !highlightedState ? "#ff6b00" : "transparent"}
                       onMouseEnter={() => setHovered(i)}
                       onMouseLeave={() => setHovered(null)}
                     />
@@ -281,7 +298,7 @@ export default function IndiaEconomyDashboard() {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-          </>
+          </div>
         )}
 
         {tab === "growth" && (
@@ -372,7 +389,6 @@ export default function IndiaEconomyDashboard() {
         )}
       </div>
 
-      {/* ── Footer ── */}
       <div style={{
         borderTop: "1px solid #111", padding: "16px 40px",
         display: "flex", justifyContent: "space-between",
