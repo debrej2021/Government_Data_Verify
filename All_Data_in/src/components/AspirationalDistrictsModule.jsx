@@ -1,23 +1,21 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, RadarChart, Radar,
   PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
+import { useSearchParams } from "react-router-dom";
+import ChartToolbar from "./ChartToolbar";
+import { exportCSV, downloadChartPNG } from "../utils/chartExport";
 
-// ─── DATA — Source: NITI Aayog ADP Reports, Champions of Change 2018–2024 ─
-
-// 5 Pillars with weights
 const PILLARS = [
-  { name: "Health & Nutrition",              weight: 30, color: "#ff6b00", key: "health" },
-  { name: "Education",                       weight: 30, color: "#4da6ff", key: "edu" },
-  { name: "Agriculture & Water",             weight: 20, color: "#00c896", key: "agri" },
-  { name: "Financial Inclusion & Skills",    weight: 10, color: "#ffcc00", key: "fin" },
-  { name: "Basic Infrastructure",            weight: 10, color: "#cc88ff", key: "infra" },
+  { name: "Health & Nutrition",           weight: 30, color: "#ff6b00", key: "health" },
+  { name: "Education",                    weight: 30, color: "#4da6ff", key: "edu" },
+  { name: "Agriculture & Water",          weight: 20, color: "#00c896", key: "agri" },
+  { name: "Financial Inclusion & Skills", weight: 10, color: "#ffcc00", key: "fin" },
+  { name: "Basic Infrastructure",         weight: 10, color: "#cc88ff", key: "infra" },
 ];
 
-// Top performing districts — composite scores (baseline 2018 → latest 2024)
-// Source: NITI Aayog ADP Deep Dive, Champions of Change Dashboard
 const DISTRICT_DATA = [
   { district: "Sonbhadra",      state: "Uttar Pradesh",   baseline: 28.4, current: 71.2, health: 78, edu: 82, agri: 65, fin: 88, infra: 74 },
   { district: "Chandauli",      state: "Uttar Pradesh",   baseline: 31.2, current: 69.8, health: 72, edu: 79, agri: 68, fin: 85, infra: 71 },
@@ -41,7 +39,6 @@ const DISTRICT_DATA = [
   { district: "Dumka",          state: "Jharkhand",       baseline: 20.5, current: 53.1, health: 57, edu: 58, agri: 58, fin: 62, infra: 55 },
 ];
 
-// State-wise district counts — all states expanded
 const STATE_DISTRICT_COUNT = [
   { state: "Jharkhand",        count: 19, color: "#00c896" },
   { state: "Bihar",            count: 13, color: "#4da6ff" },
@@ -69,7 +66,6 @@ const STATE_DISTRICT_COUNT = [
   { state: "Kerala",           count: 1,  color: "#88ff88" },
 ].sort((a, b) => b.count - a.count);
 
-// National progress stats
 const NATIONAL_STATS = [
   { label: "Districts improved by 50%+",   value: "67",   sub: "60% of all 112 districts",          color: "#00c896" },
   { label: "Score more than doubled",       value: "3+",   sub: "Singrauli, Mewat, Asifabad",        color: "#ff6b00" },
@@ -77,18 +73,13 @@ const NATIONAL_STATS = [
   { label: "CSR invested (2014–2023)",      value: "₹4,594 Cr", sub: "2.5% of total national CSR",  color: "#ffcc00" },
 ];
 
-// ─── Tooltips ──────────────────────────────────────────────────────────────
 const DistrictTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   const d = DISTRICT_DATA.find(x => x.district === label);
   if (!d) return null;
   const improvement = ((d.current - d.baseline) / d.baseline * 100).toFixed(0);
   return (
-    <div style={{
-      background: "#0d0d0d", border: "1px solid #00c896",
-      padding: "10px 14px", borderRadius: 4,
-      fontFamily: "'IBM Plex Mono', monospace", fontSize: 11
-    }}>
+    <div style={{ background: "#0d0d0d", border: "1px solid #00c896", padding: "10px 14px", borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
       <p style={{ color: "#00c896", margin: 0, marginBottom: 4 }}>{label}</p>
       <p style={{ color: "#888", margin: "2px 0", fontSize: 10 }}>{d.state}</p>
       <p style={{ color: "#e0e0e0", margin: "2px 0" }}>Baseline 2018: {d.baseline}%</p>
@@ -98,11 +89,19 @@ const DistrictTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── Main Component ────────────────────────────────────────────────────────
 export default function AspirationalDistrictsModule() {
-  const [tab,      setTab]      = useState("overview");
+  const chartRef = useRef(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightedState = searchParams.get('state');
+
+  const [tab,      setTab]      = useState(searchParams.get('tab') || 'overview');
   const [selected, setSelected] = useState(DISTRICT_DATA[0]);
   const [sortBy,   setSortBy]   = useState("improvement");
+
+  const handleTabChange = (t) => {
+    setTab(t);
+    setSearchParams(p => { const n = new URLSearchParams(p); n.set('tab', t); return n; }, { replace: true });
+  };
 
   const sortedDistricts = [...DISTRICT_DATA].sort((a, b) => {
     if (sortBy === "improvement") return (b.current - b.baseline) - (a.current - a.baseline);
@@ -112,152 +111,73 @@ export default function AspirationalDistrictsModule() {
     return 0;
   });
 
-  const radarData = PILLARS.map(p => ({
-    pillar: p.name.split(" ")[0],
-    score: selected[p.key],
-    fullMark: 100,
-  }));
+  const radarData = PILLARS.map(p => ({ pillar: p.name.split(" ")[0], score: selected[p.key], fullMark: 100 }));
 
   return (
-    <div style={{
-      background: "#080808", color: "#e0e0e0",
-      fontFamily: "'IBM Plex Sans', sans-serif",
-      borderTop: "1px solid #1a1a1a",
-    }}>
+    <div style={{ background: "#080808", color: "#e0e0e0", fontFamily: "'IBM Plex Sans', sans-serif", borderTop: "1px solid #1a1a1a" }}>
       <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&family=Bebas+Neue&display=swap" rel="stylesheet" />
-
-      {/* ── Header ── */}
-      <div style={{
-        padding: "28px 40px 20px",
-        borderBottom: "1px solid #1a1a1a",
-        display: "flex", justifyContent: "space-between", alignItems: "flex-end"
-      }}>
+      <div style={{ padding: "28px 40px 20px", borderBottom: "1px solid #1a1a1a", display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
-          <div style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: 36, letterSpacing: 4, color: "#00c896", lineHeight: 1
-          }}>
-            ASPIRATIONAL DISTRICTS
-          </div>
-          <div style={{ fontSize: 12, color: "#555", letterSpacing: 3, marginTop: 4 }}>
-            112 DISTRICTS · 27 STATES · NITI AAYOG ADP · 2018–2024
-          </div>
+          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 36, letterSpacing: 4, color: "#00c896", lineHeight: 1 }}>ASPIRATIONAL DISTRICTS</div>
+          <div style={{ fontSize: 12, color: "#555", letterSpacing: 3, marginTop: 4 }}>112 DISTRICTS · 27 STATES · NITI AAYOG ADP · 2018–2024</div>
         </div>
-        <div style={{
-          fontSize: 10, color: "#333",
-          fontFamily: "'IBM Plex Mono', monospace",
-          letterSpacing: 2, textAlign: "right"
-        }}>
-          SOURCE · NITI AAYOG ADP REPORTS<br />
-          CHAMPIONS OF CHANGE DASHBOARD
-        </div>
+        <div style={{ fontSize: 10, color: "#333", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 2, textAlign: "right" }}>SOURCE · NITI AAYOG ADP REPORTS<br />CHAMPIONS OF CHANGE DASHBOARD</div>
       </div>
 
-      {/* ── Info Banner ── */}
-      <div style={{
-        background: "#001a0f", borderBottom: "1px solid #003322",
-        padding: "10px 40px",
-        fontFamily: "'IBM Plex Mono', monospace", fontSize: 11,
-        color: "#448866", letterSpacing: 1,
-        display: "flex", alignItems: "center", gap: 12
-      }}>
-        <span style={{ color: "#00c896", fontSize: 14 }}>◉</span>
-        112 of India's most underdeveloped districts are scored monthly on 49 KPIs across 5 pillars.
-        DC performance is directly proxied by district improvement scores.
+      <div style={{ background: "#001a0f", borderBottom: "1px solid #003322", padding: "10px 40px", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: "#448866", letterSpacing: 1, display: "flex", alignItems: "center", gap: 12 }}>
+        <span style={{ color: "#00c896", fontSize: 14 }}>&#9685;</span>
+        112 of India's most underdeveloped districts are scored monthly on 49 KPIs across 5 pillars. DC performance is directly proxied by district improvement scores.
         <span style={{ marginLeft: "auto", color: "#224433" }}>championsofchange.gov.in</span>
       </div>
 
-      {/* ── KPI Strip ── */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-        borderBottom: "1px solid #1a1a1a"
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", borderBottom: "1px solid #1a1a1a" }}>
         {NATIONAL_STATS.map((kpi, i) => (
-          <div key={i} style={{
-            padding: "20px 32px",
-            borderRight: i < 3 ? "1px solid #1a1a1a" : "none"
-          }}>
-            <div style={{ fontSize: 10, color: "#444", letterSpacing: 3, marginBottom: 6 }}>
-              {kpi.label}
-            </div>
-            <div style={{
-              fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: 26, color: kpi.color, letterSpacing: 2
-            }}>
-              {kpi.value}
-            </div>
-            <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>
-              {kpi.sub}
-            </div>
+          <div key={i} style={{ padding: "20px 32px", borderRight: i < 3 ? "1px solid #1a1a1a" : "none" }}>
+            <div style={{ fontSize: 10, color: "#444", letterSpacing: 3, marginBottom: 6 }}>{kpi.label}</div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, color: kpi.color, letterSpacing: 2 }}>{kpi.value}</div>
+            <div style={{ fontSize: 10, color: "#555", marginTop: 2, fontFamily: "monospace" }}>{kpi.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* ── Pillars Strip ── */}
-      <div style={{
-        display: "flex", borderBottom: "1px solid #1a1a1a",
-        padding: "12px 40px", gap: 32, overflowX: "auto"
-      }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #1a1a1a", padding: "12px 40px", gap: 32, overflowX: "auto" }}>
         {PILLARS.map((p, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap" }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: p.color }} />
-            <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>
-              {p.name}
-            </span>
-            <span style={{
-              fontSize: 11, color: p.color,
-              fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600
-            }}>
-              {p.weight}%
-            </span>
+            <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>{p.name}</span>
+            <span style={{ fontSize: 11, color: p.color, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{p.weight}%</span>
           </div>
         ))}
       </div>
 
-      {/* ── Tab Nav ── */}
-      <div style={{
-        display: "flex", borderBottom: "1px solid #1a1a1a",
-        padding: "0 40px"
-      }}>
+      <div style={{ display: "flex", borderBottom: "1px solid #1a1a1a", padding: "0 40px" }}>
         {[
           { id: "overview",  label: "IMPROVEMENT RANKING" },
           { id: "drilldown", label: "DISTRICT DRILL-DOWN" },
           { id: "states",    label: "STATE DISTRIBUTION" },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{
-            background: "none", border: "none",
-            borderBottom: tab === t.id ? "2px solid #00c896" : "2px solid transparent",
-            color: tab === t.id ? "#00c896" : "#444",
-            padding: "14px 20px", cursor: "pointer",
-            fontFamily: "'IBM Plex Mono', monospace",
-            fontSize: 11, letterSpacing: 2,
-            marginBottom: -1, transition: "all 0.15s"
-          }}>
-            {t.label}
-          </button>
+          <button key={t.id} onClick={() => handleTabChange(t.id)} style={{ background: "none", border: "none", borderBottom: tab === t.id ? "2px solid #00c896" : "2px solid transparent", color: tab === t.id ? "#00c896" : "#444", padding: "14px 20px", cursor: "pointer", fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, letterSpacing: 2, marginBottom: -1, transition: "all 0.15s" }}>{t.label}</button>
         ))}
       </div>
 
-      {/* ── Chart Area ── */}
       <div style={{ padding: "32px 40px" }}>
+        {highlightedState && (
+          <div style={{ marginBottom: 16, padding: '8px 16px', background: '#0d0d00', border: '1px solid #ff6b0044', borderLeft: '3px solid #ff6b00', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 }}>
+            <span style={{ color: '#ff6b00', letterSpacing: 2 }}>&#9685; HIGHLIGHTING · {highlightedState.toUpperCase()}</span>
+            <button onClick={() => setSearchParams(p => { const n = new URLSearchParams(p); n.delete('state'); return n; }, { replace: true })} style={{ background: 'none', border: 'none', color: '#444', cursor: 'pointer', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10 }}>✕ CLEAR</button>
+          </div>
+        )}
 
-        {/* Improvement Ranking */}
         {tab === "overview" && (
-          <>
-            <div style={{
-              display: "flex", justifyContent: "space-between",
-              alignItems: "flex-start", marginBottom: 20, gap: 20
-            }}>
+          <div ref={chartRef}>
+            <ChartToolbar chartRef={chartRef} data={DISTRICT_DATA} csvFilename="aspirational-districts-data" />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, gap: 20 }}>
               <div>
                 <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 4 }}>
-                  {sortBy === "least"
-                    ? "⚠ LEAST IMPROVED DISTRICTS · DISTRICTS WHERE LITTLE HAS CHANGED SINCE 2018"
-                    : "MOST IMPROVED DISTRICTS · FROM WORST BASELINE TO HIGHEST DELTA · 2018–2024"}
+                  {sortBy === "least" ? "⚠ LEAST IMPROVED DISTRICTS · DISTRICTS WHERE LITTLE HAS CHANGED SINCE 2018" : "MOST IMPROVED DISTRICTS · FROM WORST BASELINE TO HIGHEST DELTA · 2018–2024"}
                 </div>
                 <div style={{ fontSize: 10, color: sortBy === "least" ? "#884444" : "#448866", fontFamily: "monospace" }}>
-                  {sortBy === "least"
-                    ? "These districts had the smallest improvement — DC accountability question"
-                    : "These were India's most underdeveloped districts in 2018 — ranked by how much they improved"}
+                  {sortBy === "least" ? "These districts had the smallest improvement — DC accountability question" : "These were India's most underdeveloped districts in 2018 — ranked by how much they improved"}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
@@ -266,49 +186,33 @@ export default function AspirationalDistrictsModule() {
                   { key: "least",       label: "LEAST IMPROVED", activeColor: "#ff4444" },
                   { key: "current",     label: "CURRENT SCORE",  activeColor: "#4da6ff" },
                 ].map(s => (
-                  <button key={s.key} onClick={() => setSortBy(s.key)} style={{
-                    background: sortBy === s.key ? s.activeColor : "transparent",
-                    border: `1px solid ${sortBy === s.key ? s.activeColor : "#222"}`,
-                    color: sortBy === s.key ? "#000" : "#555",
-                    padding: "4px 12px", borderRadius: 2,
-                    fontFamily: "'IBM Plex Mono', monospace",
-                    fontSize: 10, cursor: "pointer", letterSpacing: 1,
-                    transition: "all 0.15s"
-                  }}>
-                    {s.label}
-                  </button>
+                  <button key={s.key} onClick={() => setSortBy(s.key)} style={{ background: sortBy === s.key ? s.activeColor : "transparent", border: `1px solid ${sortBy === s.key ? s.activeColor : "#222"}`, color: sortBy === s.key ? "#000" : "#555", padding: "4px 12px", borderRadius: 2, fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, cursor: "pointer", letterSpacing: 1, transition: "all 0.15s" }}>{s.label}</button>
                 ))}
               </div>
             </div>
-
             <ResponsiveContainer width="100%" height={420}>
-              <BarChart
-                data={sortedDistricts}
-                margin={{ top: 0, right: 20, left: 20, bottom: 80 }}
-              >
+              <BarChart data={sortedDistricts} margin={{ top: 0, right: 20, left: 20, bottom: 80 }}>
                 <CartesianGrid stroke="#111" vertical={false} />
-                <XAxis
-                  dataKey="district"
-                  tick={{ fill: "#444", fontSize: 9, fontFamily: "IBM Plex Mono" }}
-                  angle={-40} textAnchor="end" interval={0}
-                  tickLine={false} axisLine={{ stroke: "#1a1a1a" }}
-                />
-                <YAxis
-                  tickFormatter={v => `${v}%`}
-                  tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                  tickLine={false} axisLine={false}
-                  domain={[0, 90]}
-                />
+                <XAxis dataKey="district" tick={{ fill: "#444", fontSize: 9, fontFamily: "IBM Plex Mono" }} angle={-40} textAnchor="end" interval={0} tickLine={false} axisLine={{ stroke: "#1a1a1a" }} />
+                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} domain={[0, 90]} />
                 <Tooltip content={<DistrictTooltip />} cursor={{ fill: "#111" }} />
                 <Bar dataKey="baseline" name="Baseline 2018" fill="#ff6b0030" radius={[2, 2, 0, 0]} />
                 <Bar dataKey="current" name="Current 2024"
-                  fill={sortBy === "least" ? "#ff444460" : "#00c89660"}
                   radius={[2, 2, 0, 0]}
                   onClick={(d) => setSelected(DISTRICT_DATA.find(x => x.district === d.district) || selected)}
-                />
+                >
+                  {sortedDistricts.map((d, i) => (
+                    <Cell key={i}
+                      fill={highlightedState
+                        ? (DISTRICT_DATA.find(x => x.district === d.district)?.state === highlightedState
+                          ? (sortBy === "least" ? "#ff444460" : "#00c89660")
+                          : "#1a1a1a")
+                        : (sortBy === "least" ? "#ff444460" : "#00c89660")}
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
-
             <div style={{ display: "flex", gap: 24, marginTop: 8, justifyContent: "center" }}>
               {[
                 { color: "#ff6b0050", label: "BASELINE SCORE 2018" },
@@ -320,121 +224,48 @@ export default function AspirationalDistrictsModule() {
                 </div>
               ))}
             </div>
-
             {sortBy === "least" && (
-              <div style={{
-                marginTop: 16, padding: "14px 20px",
-                background: "#0a0000", border: "1px solid #330000",
-                fontFamily: "monospace", fontSize: 10, color: "#884444", lineHeight: 1.8
-              }}>
-                ⚠ &nbsp;These districts had the least improvement despite being in the ADP programme since 2018.
-                &nbsp;Low delta = systemic issues, poor governance, or lack of administrative push at district level.
-                &nbsp;The DC is directly accountable for these KPIs under the ADP framework.
+              <div style={{ marginTop: 16, padding: "14px 20px", background: "#0a0000", border: "1px solid #330000", fontFamily: "monospace", fontSize: 10, color: "#884444", lineHeight: 1.8 }}>
+                ⚠ &nbsp;These districts had the least improvement despite being in the ADP programme since 2018. &nbsp;Low delta = systemic issues, poor governance, or lack of administrative push at district level.
               </div>
             )}
-
-            <div style={{
-              marginTop: 24, padding: "14px 20px",
-              background: "#001a0f", border: "1px solid #003322",
-              fontFamily: "monospace", fontSize: 10, color: "#448866", lineHeight: 1.8
-            }}>
-              ◉ &nbsp;Click any bar to drill into that district's pillar-wise performance →
-              &nbsp;Switch to "District Drill-Down" tab to see the radar chart.
-              &nbsp;|&nbsp; Data self-reported by districts to championsofchange.gov.in
+            <div style={{ marginTop: 24, padding: "14px 20px", background: "#001a0f", border: "1px solid #003322", fontFamily: "monospace", fontSize: 10, color: "#448866", lineHeight: 1.8 }}>
+              &#9685; &nbsp;Click any bar to drill into that district's pillar-wise performance → Switch to "District Drill-Down" tab.
             </div>
-          </>
+          </div>
         )}
 
-        {/* District Drill-Down */}
         {tab === "drilldown" && (
           <>
-            <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 20 }}>
-              SELECT DISTRICT → VIEW PILLAR-WISE PERFORMANCE
-            </div>
+            <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 20 }}>SELECT DISTRICT → VIEW PILLAR-WISE PERFORMANCE</div>
             <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: 32 }}>
-
-              {/* District Selector */}
               <div style={{ overflowY: "auto", maxHeight: 460 }}>
                 {DISTRICT_DATA.map((d, i) => {
                   const imp = ((d.current - d.baseline) / d.baseline * 100).toFixed(0);
                   return (
-                    <div key={i}
-                      onClick={() => setSelected(d)}
-                      style={{
-                        padding: "10px 14px",
-                        background: selected.district === d.district ? "#001a0f" : "transparent",
-                        border: selected.district === d.district ? "1px solid #00c896" : "1px solid transparent",
-                        borderRadius: 2, cursor: "pointer",
-                        marginBottom: 4, transition: "all 0.1s"
-                      }}
-                    >
-                      <div style={{
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 11, color: selected.district === d.district ? "#00c896" : "#888"
-                      }}>
-                        {d.district}
-                      </div>
-                      <div style={{ fontSize: 9, color: "#444", fontFamily: "monospace", marginTop: 2 }}>
-                        {d.state} · +{imp}% improvement
-                      </div>
+                    <div key={i} onClick={() => setSelected(d)} style={{ padding: "10px 14px", background: selected.district === d.district ? "#001a0f" : "transparent", border: selected.district === d.district ? "1px solid #00c896" : "1px solid transparent", borderRadius: 2, cursor: "pointer", marginBottom: 4, transition: "all 0.1s" }}>
+                      <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: selected.district === d.district ? "#00c896" : "#888" }}>{d.district}</div>
+                      <div style={{ fontSize: 9, color: "#444", fontFamily: "monospace", marginTop: 2 }}>{d.state} · +{imp}% improvement</div>
                     </div>
                   );
                 })}
               </div>
-
-              {/* Radar Chart */}
               <div>
-                <div style={{
-                  fontFamily: "'Bebas Neue', sans-serif",
-                  fontSize: 28, color: "#00c896", letterSpacing: 3, marginBottom: 4
-                }}>
-                  {selected.district}
-                </div>
-                <div style={{ fontSize: 10, color: "#555", fontFamily: "monospace", marginBottom: 16 }}>
-                  {selected.state} · Baseline: {selected.baseline}% → Current: {selected.current}%
-                  &nbsp;(+{((selected.current - selected.baseline) / selected.baseline * 100).toFixed(0)}% improvement)
-                </div>
-
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, color: "#00c896", letterSpacing: 3, marginBottom: 4 }}>{selected.district}</div>
+                <div style={{ fontSize: 10, color: "#555", fontFamily: "monospace", marginBottom: 16 }}>{selected.state} · Baseline: {selected.baseline}% → Current: {selected.current}% &nbsp;(+{((selected.current - selected.baseline) / selected.baseline * 100).toFixed(0)}% improvement)</div>
                 <ResponsiveContainer width="100%" height={340}>
                   <RadarChart data={radarData}>
                     <PolarGrid stroke="#1a1a1a" />
-                    <PolarAngleAxis
-                      dataKey="pillar"
-                      tick={{ fill: "#555", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                    />
-                    <PolarRadiusAxis
-                      angle={90} domain={[0, 100]}
-                      tick={{ fill: "#333", fontSize: 8 }}
-                      tickCount={4}
-                    />
-                    <Radar
-                      name={selected.district}
-                      dataKey="score"
-                      stroke="#00c896"
-                      fill="#00c896"
-                      fillOpacity={0.2}
-                      strokeWidth={2}
-                    />
+                    <PolarAngleAxis dataKey="pillar" tick={{ fill: "#555", fontSize: 10, fontFamily: "IBM Plex Mono" }} />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#333", fontSize: 8 }} tickCount={4} />
+                    <Radar name={selected.district} dataKey="score" stroke="#00c896" fill="#00c896" fillOpacity={0.2} strokeWidth={2} />
                   </RadarChart>
                 </ResponsiveContainer>
-
-                {/* Pillar Scores */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8 }}>
                   {PILLARS.map((p, i) => (
-                    <div key={i} style={{
-                      padding: "8px 12px", background: "#0a0a0a",
-                      borderLeft: `2px solid ${p.color}`, display: "flex",
-                      justifyContent: "space-between", alignItems: "center"
-                    }}>
-                      <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>
-                        {p.name.split(" ")[0]}
-                      </span>
-                      <span style={{
-                        fontFamily: "'IBM Plex Mono', monospace",
-                        fontSize: 13, color: p.color
-                      }}>
-                        {selected[p.key]}%
-                      </span>
+                    <div key={i} style={{ padding: "8px 12px", background: "#0a0a0a", borderLeft: `2px solid ${p.color}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, color: "#555", fontFamily: "monospace" }}>{p.name.split(" ")[0]}</span>
+                      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 13, color: p.color }}>{selected[p.key]}%</span>
                     </div>
                   ))}
                 </div>
@@ -443,71 +274,35 @@ export default function AspirationalDistrictsModule() {
           </>
         )}
 
-        {/* State Distribution */}
         {tab === "states" && (
           <>
-            <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 20 }}>
-              ASPIRATIONAL DISTRICTS BY STATE · NUMBER OF DISTRICTS INCLUDED
-            </div>
+            <div style={{ fontSize: 11, color: "#444", letterSpacing: 2, marginBottom: 20 }}>ASPIRATIONAL DISTRICTS BY STATE · NUMBER OF DISTRICTS INCLUDED</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
               <ResponsiveContainer width="100%" height={680}>
-                <BarChart
-                  data={STATE_DISTRICT_COUNT}
-                  layout="vertical"
-                  margin={{ top: 0, right: 20, left: 120, bottom: 0 }}
-                >
+                <BarChart data={STATE_DISTRICT_COUNT} layout="vertical" margin={{ top: 0, right: 20, left: 120, bottom: 0 }}>
                   <CartesianGrid stroke="#111" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                    tickLine={false} axisLine={false}
-                    domain={[0, 22]}
-                  />
-                  <YAxis
-                    type="category" dataKey="state"
-                    tick={{ fill: "#888", fontSize: 10, fontFamily: "IBM Plex Mono" }}
-                    tickLine={false} axisLine={false} width={120}
-                  />
-                  <Tooltip
-                    contentStyle={{ background: "#0d0d0d", border: "1px solid #333", fontFamily: "monospace", fontSize: 11 }}
-                    cursor={{ fill: "#111" }}
-                    formatter={(value) => [`${value} districts`, "ADP Districts"]}
-                  />
+                  <XAxis type="number" tick={{ fill: "#444", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} domain={[0, 22]} />
+                  <YAxis type="category" dataKey="state" tick={{ fill: "#888", fontSize: 10, fontFamily: "IBM Plex Mono" }} tickLine={false} axisLine={false} width={120} />
+                  <Tooltip contentStyle={{ background: "#0d0d0d", border: "1px solid #333", fontFamily: "monospace", fontSize: 11 }} cursor={{ fill: "#111" }} formatter={(value) => [`${value} districts`, "ADP Districts"]} />
                   <Bar dataKey="count" name="Districts" radius={[0, 2, 2, 0]}>
-                    {STATE_DISTRICT_COUNT.map((d, i) => (
-                      <Cell key={i} fill={d.color} fillOpacity={0.75} />
-                    ))}
+                    {STATE_DISTRICT_COUNT.map((d, i) => <Cell key={i} fill={d.color} fillOpacity={0.75} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-
               <div>
-                <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginBottom: 16 }}>
-                  KEY INSIGHT — WHY THESE STATES?
-                </div>
+                <div style={{ fontSize: 10, color: "#444", letterSpacing: 2, marginBottom: 16 }}>KEY INSIGHT — WHY THESE STATES?</div>
                 {[
                   { title: "Jharkhand — 19 districts (most)", desc: "Despite being mineral-rich, tribal-dominated areas have poor infrastructure, low literacy, and historical administrative neglect.", color: "#00c896" },
                   { title: "Bihar — 13 districts", desc: "Persistent poverty, low HDI, and high population density. The state with the most systemic challenge.", color: "#4da6ff" },
                   { title: "Odisha — 10 districts", desc: "Southern tribal districts consistently lag on health and education. Kandhamal, Malkangiri remain chronic underperformers.", color: "#cc88ff" },
                   { title: "Assam — 9 districts", desc: "Flood-prone areas, tea garden communities, and border districts face structural barriers beyond normal governance.", color: "#ff88aa" },
                   { title: "UP & MP — 8 districts each", desc: "Eastern UP (Bundelkhand, Poorvanchal) and MP tribal belts show pockets of extreme deprivation despite overall state growth.", color: "#ffcc00" },
-                  { title: "Developed states — 1 to 3 districts", desc: "Kerala (1), Gujarat (1), Maharashtra (2) — isolated deprivation pockets that survived despite broader state prosperity. These are the most interesting outliers.", color: "#88ff88" },
+                  { title: "Developed states — 1 to 3 districts", desc: "Kerala (1), Gujarat (1), Maharashtra (2) — isolated deprivation pockets that survived despite broader state prosperity.", color: "#88ff88" },
                   { title: "Selection criteria", desc: "Districts chosen on Composite Index using poverty, health, education and infrastructure data from ministry sources. Last major revision: 2018.", color: "#888" },
                 ].map((item, i) => (
-                  <div key={i} style={{
-                    padding: "12px 16px",
-                    borderLeft: `2px solid ${item.color}`,
-                    marginBottom: 10, background: "#0a0a0a"
-                  }}>
-                    <div style={{
-                      fontFamily: "'IBM Plex Mono', monospace",
-                      fontSize: 11, color: item.color, marginBottom: 4
-                    }}>
-                      {item.title}
-                    </div>
-                    <div style={{ fontSize: 10, color: "#555", fontFamily: "sans-serif", lineHeight: 1.6 }}>
-                      {item.desc}
-                    </div>
+                  <div key={i} style={{ padding: "12px 16px", borderLeft: `2px solid ${item.color}`, marginBottom: 10, background: "#0a0a0a" }}>
+                    <div style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, color: item.color, marginBottom: 4 }}>{item.title}</div>
+                    <div style={{ fontSize: 10, color: "#555", fontFamily: "sans-serif", lineHeight: 1.6 }}>{item.desc}</div>
                   </div>
                 ))}
               </div>
@@ -516,13 +311,7 @@ export default function AspirationalDistrictsModule() {
         )}
       </div>
 
-      {/* ── Footer ── */}
-      <div style={{
-        borderTop: "1px solid #111", padding: "12px 40px",
-        display: "flex", justifyContent: "space-between",
-        fontSize: 10, color: "#333", fontFamily: "'IBM Plex Mono', monospace",
-        letterSpacing: 2
-      }}>
+      <div style={{ borderTop: "1px solid #111", padding: "12px 40px", display: "flex", justifyContent: "space-between", fontSize: 10, color: "#333", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: 2 }}>
         <span>SOURCE · NITI AAYOG ADP REPORTS 2018–2024 · CHAMPIONS OF CHANGE DASHBOARD</span>
         <span>INSIGHTS.DEBPROD.COM</span>
       </div>
