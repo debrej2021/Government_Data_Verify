@@ -1,0 +1,68 @@
+{
+  "task_id": "CAD-RL-002",
+  "version": "v1",
+  "family": "assembly_bom_reconciliation",
+  "title": "Assembly BOM Quantity Mismatch + Fit Classification",
+  "difficulty_target": "medium-hard",
+
+  "inputs": [
+    {
+      "type": "image/png",
+      "path": "../drawings/task2_assembly_sheet1.png",
+      "description": "Sheet 1 of 2: Exploded assembly view of a shaft-bushing assembly. Five balloon callouts (items 1-5). Item 4 (cap screw M8x25) has two balloon leaders pointing to two screws in the exploded view. A note on the view reads 'ITEMS 2 & 3: O40 H7/p6 FIT'. See BOM on Sheet 2."
+    },
+    {
+      "type": "image/png",
+      "path": "../drawings/task2_assembly_sheet2_bom.png",
+      "description": "Sheet 2 of 2: Bill of Materials table. Item 4 (CAP SCREW M8x25 DIN 912, Grade 10.9) lists QTY = 3 in the BOM table. All other items have QTY = 1."
+    }
+  ],
+
+  "prompt": "In one short paragraph, identify (a) the fit classification between items 2 and 3, and (b) any BOM inconsistency between sheets 1 and 2.",
+
+  "correct_answer_summary": "(a) The O40 H7/p6 pairing between the bushing bore (H7) and the shaft (p6) is an interference fit — specifically a press fit requiring force or thermal assembly. (b) Item 4 (cap screw) is listed with QTY 3 in the BOM on sheet 2, but only 2 balloon leaders for item 4 appear on the exploded view on sheet 1, a discrepancy of one screw.",
+
+  "rubric": [
+    {
+      "id": "R1",
+      "item": "Correctly identifies the O40 H7/p6 pairing as an interference fit (not clearance or transition).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "H7/p6 is a standard interference grade; models with ISO 286 knowledge should get this, but 'p' grade may be confused with 'k' (transition) by some."
+    },
+    {
+      "id": "R2",
+      "item": "Identifies item 4 (cap screw) as the BOM line with the quantity inconsistency.",
+      "expected_difficulty": "medium-hard",
+      "estimated_pass_rate_8": 3,
+      "rationale": "Requires cross-referencing two sheets and counting balloon leaders, which is a visually demanding task for vision models."
+    },
+    {
+      "id": "R3",
+      "item": "Correctly states that the BOM shows QTY 3 for item 4 while only 2 callouts appear on the assembly view.",
+      "expected_difficulty": "hard",
+      "estimated_pass_rate_8": 2,
+      "rationale": "Requires accurate counting of balloon leaders on the exploded view and matching to the exact BOM quantity. Often fails due to counting errors."
+    },
+    {
+      "id": "R4",
+      "item": "Does NOT misread H7/p6 as a clearance or running fit.",
+      "expected_difficulty": "medium-easy",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Guard against the most common misclassification. p6 is well above the clearance zone."
+    },
+    {
+      "id": "R5",
+      "item": "Does NOT introduce a fabricated BOM inconsistency on items other than item 4.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Hallucination guard; items 1, 2, 3, 5 are consistent between sheets."
+    }
+  ],
+
+  "qa_status": {
+    "rollouts_completed": 0,
+    "pass_counts_per_rubric": {"R1": null, "R2": null, "R3": null, "R4": null, "R5": null},
+    "note": "Run qa_runner.py with ANTHROPIC_API_KEY set to populate pass counts."
+  }
+}

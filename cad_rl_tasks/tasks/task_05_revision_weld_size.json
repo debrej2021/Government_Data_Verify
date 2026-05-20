@@ -1,0 +1,68 @@
+{
+  "task_id": "CAD-RL-005",
+  "version": "v1",
+  "family": "revision_comparison",
+  "title": "Revision Comparison: Fillet Weld Size Change and Manufacturing Impact",
+  "difficulty_target": "medium",
+
+  "inputs": [
+    {
+      "type": "image/png",
+      "path": "../drawings/task5_weldment_revA.png",
+      "description": "Revision A of a support bracket weldment drawing. Shows a base plate, vertical gusset, and horizontal top plate in AISI 1020 HR steel. All fillet welds are called out as 4mm (TYP.) at base plate and gusset joints. Revision block shows Rev A, date 2024-01-10, 'INITIAL RELEASE'. Weld process: GMAW (MIG)."
+    },
+    {
+      "type": "image/png",
+      "path": "../drawings/task5_weldment_revB.png",
+      "description": "Revision B of the same support bracket weldment drawing. A revision cloud is drawn around the weld symbol areas. All fillet welds are now called out as 6mm (TYP.). The title block shows Rev B. Revision block shows: Rev A (2024-01-10, INITIAL RELEASE, J.SMITH) and Rev B (2024-03-22, 'FILLET SIZE 4 to 6 PER ECO-1147', K.JONES). ECO-1147 label appears near the revision cloud."
+    }
+  ],
+
+  "prompt": "What changed between Revision A and Revision B of this weldment drawing, and what is the primary manufacturing impact of that change? One short paragraph.",
+
+  "correct_answer_summary": "The single substantive change is that all fillet weld leg sizes increased from 4mm to 6mm (a 50% increase in weld size) per ECO-1147 as documented in the Rev B revision block. The primary manufacturing impact is a significant increase in weld volume — a 6mm fillet contains approximately 2.25x the weld metal of a 4mm fillet — which increases weld time, wire/gas consumption, and heat input per joint, and may require a revised welding procedure specification to control distortion in the 1020 steel base material.",
+
+  "rubric": [
+    {
+      "id": "R1",
+      "item": "Correctly identifies the fillet weld size as the changed element (from 4mm to 6mm).",
+      "expected_difficulty": "easy-medium",
+      "estimated_pass_rate_8": 6,
+      "rationale": "The revision cloud highlights the weld callout area and the revision note is explicit. Most models should find this, but reading weld symbols precisely can trip some up."
+    },
+    {
+      "id": "R2",
+      "item": "States the specific numeric change: weld size increased from 4mm (Rev A) to 6mm (Rev B).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Requires reading the weld size number from both drawings and both are labeled. Some models may give one value or the wrong direction."
+    },
+    {
+      "id": "R3",
+      "item": "Identifies at least one of the following manufacturing impacts: increased weld volume/metal, increased welding time, higher heat input, or distortion risk.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Requires engineering reasoning about the effect of a larger fillet. Domain knowledge is tested here; the drawing does not explicitly list consequences."
+    },
+    {
+      "id": "R4",
+      "item": "References the ECO number (ECO-1147) or the revision date (2024-03-22) or the person (K.JONES) as supporting evidence for the change.",
+      "expected_difficulty": "medium-hard",
+      "estimated_pass_rate_8": 3,
+      "rationale": "Requires reading the revision block carefully. ECO reference adds traceability context; models often skip this detail."
+    },
+    {
+      "id": "R5",
+      "item": "Does NOT claim the base material, weld process (GMAW), or plate dimensions changed between revisions (they did not).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Hallucination guard; material (AISI 1020), process (GMAW/MIG), and overall dimensions are identical in both revisions."
+    }
+  ],
+
+  "qa_status": {
+    "rollouts_completed": 0,
+    "pass_counts_per_rubric": {"R1": null, "R2": null, "R3": null, "R4": null, "R5": null},
+    "note": "Run qa_runner.py with ANTHROPIC_API_KEY set to populate pass counts."
+  }
+}

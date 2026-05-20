@@ -1,0 +1,37 @@
+{
+  "batch": "CAD-RL-v1",
+  "locked": true,
+  "locked_date": "2026-05-20",
+  "tasks": [
+    "CAD-RL-001",
+    "CAD-RL-002",
+    "CAD-RL-003",
+    "CAD-RL-004",
+    "CAD-RL-005"
+  ],
+  "task_families": {
+    "mechanical_part_gdt": ["CAD-RL-001"],
+    "assembly_bom_reconciliation": ["CAD-RL-002"],
+    "sheet_metal_weldment": ["CAD-RL-003"],
+    "electrical_schematic": ["CAD-RL-004"],
+    "revision_comparison": ["CAD-RL-005"]
+  },
+  "drawings": {
+    "CAD-RL-001": ["task1_gdt_missing_datum.png"],
+    "CAD-RL-002": ["task2_assembly_sheet1.png", "task2_assembly_sheet2_bom.png"],
+    "CAD-RL-003": ["task3_sheet_metal_no_relief.png"],
+    "CAD-RL-004": ["task4_schematic_missing_decoupling.png"],
+    "CAD-RL-005": ["task5_weldment_revA.png", "task5_weldment_revB.png"]
+  },
+  "qa_status": "estimated_pass_counts_recorded__rollouts_pending_api_key",
+  "quality_checklist": {
+    "inputs_are_high_res_png": true,
+    "all_facts_visible_on_drawing": true,
+    "prompts_require_short_answer": true,
+    "rubric_items_binary_verifiable_independent": true,
+    "no_external_standards_required": true,
+    "no_pii_no_proprietary_content": true,
+    "title_blocks_scrubbed": true,
+    "8_rollout_check": "script ready at qa_runner.py — requires ANTHROPIC_API_KEY"
+  }
+}
