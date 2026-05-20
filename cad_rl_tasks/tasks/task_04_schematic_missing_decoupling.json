@@ -1,0 +1,63 @@
+{
+  "task_id": "CAD-RL-004",
+  "version": "v1",
+  "family": "electrical_schematic",
+  "title": "Schematic: Missing Bypass Capacitor on VCORE Supply Pin",
+  "difficulty_target": "medium-hard",
+
+  "inputs": [
+    {
+      "type": "image/png",
+      "path": "../drawings/task4_schematic_missing_decoupling.png",
+      "description": "Power supply schematic for an STM32F4xx microcontroller. The MCU has five supply connections on its left side: VCC_IO (3.3V) pin 1, VCC_IO (3.3V) pin 2, VCORE (1.2V), GND pin 1, GND pin 2. The VCC_IO net (3.3V) has two bypass capacitors: C1 (100nF, 0402 X7R) and C2 (10uF, 0805 X7R), each with their own +3.3V rail connection and GND return. The VCORE (1.2V) pin is connected directly from a +1.2V rail to the pin with no bypass capacitor on that net. The schematic notes state: 'PLACE BYPASS CAPS AS CLOSE TO IC PINS AS POSSIBLE'."
+    }
+  ],
+
+  "prompt": "Identify the missing decoupling on this schematic and which specific pin is affected. One sentence.",
+
+  "correct_answer_summary": "The VCORE (1.2V) supply pin of the MCU has no bypass capacitor on its net — while the VCC_IO (3.3V) pins are each decoupled with C1 (100nF) and C2 (10uF), the 1.2V core voltage line connects directly to the VCORE pin with no capacitor, leaving the core power rail unfiltered and susceptible to switching noise.",
+
+  "rubric": [
+    {
+      "id": "R1",
+      "item": "Identifies the VCORE (1.2V) pin as the specific pin that is missing a bypass capacitor.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Requires the model to trace each supply pin's net and check for a capacitor; must not confuse VCORE with VCC_IO."
+    },
+    {
+      "id": "R2",
+      "item": "Notes that the VCC_IO (3.3V) pins DO have bypass capacitors (C1 and/or C2) present, and are therefore not the deficient pins.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Guard against the model claiming VCC_IO is also missing decoupling. C1 and C2 are clearly drawn."
+    },
+    {
+      "id": "R3",
+      "item": "Does NOT state that both GND pins are missing decoupling (GND is a return net, not a supply rail requiring a bypass cap).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Common confusion in novice-level model responses; GND pins need connections, not capacitors."
+    },
+    {
+      "id": "R4",
+      "item": "Correctly identifies the supply voltage level of the missing bypass net as 1.2V (core) rather than 3.3V or an unspecified voltage.",
+      "expected_difficulty": "medium-hard",
+      "estimated_pass_rate_8": 3,
+      "rationale": "Requires reading the rail label '+1.2V (VCORE)' accurately. Models may approximate or omit the voltage level."
+    },
+    {
+      "id": "R5",
+      "item": "Does NOT recommend adding a bypass cap to C1 or C2 net positions (those are already populated).",
+      "expected_difficulty": "medium-easy",
+      "estimated_pass_rate_8": 6,
+      "rationale": "Sanity check that the model has correctly identified which net is un-bypassed."
+    }
+  ],
+
+  "qa_status": {
+    "rollouts_completed": 0,
+    "pass_counts_per_rubric": {"R1": null, "R2": null, "R3": null, "R4": null, "R5": null},
+    "note": "Run qa_runner.py with ANTHROPIC_API_KEY set to populate pass counts."
+  }
+}

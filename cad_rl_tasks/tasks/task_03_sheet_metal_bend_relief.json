@@ -1,0 +1,63 @@
+{
+  "task_id": "CAD-RL-003",
+  "version": "v1",
+  "family": "sheet_metal_weldment",
+  "title": "Sheet Metal Missing Bend Relief at Inside Corner",
+  "difficulty_target": "medium",
+
+  "inputs": [
+    {
+      "type": "image/png",
+      "path": "../drawings/task3_sheet_metal_no_relief.png",
+      "description": "Sheet metal channel drawing showing a flat pattern and a formed U-channel view. Material: AISI 1008 CRS, t=1.5mm, general bend radius 2.5mm. The left flange bend lines show small bend relief notches at the inside corners. The right flange bend line meets the main body at a sharp inside corner with no bend relief cut. Detail B (scale 5:1) shows the right inside corner as 'R0 (NO RELIEF CUT)'. A bend table lists both flanges at 90 degrees, R=2.5mm, K=0.44."
+    }
+  ],
+
+  "prompt": "What is the manufacturability concern with this sheet metal part, and what is the standard corrective action? One sentence.",
+
+  "correct_answer_summary": "The inside corner at the right flange lacks a bend relief slot, which will cause the material to tear or crack at the bend termination during forming; the standard fix is to add a rectangular or radius relief slot at least equal to the material thickness in width and the bend radius in depth at both inside corners of that flange.",
+
+  "rubric": [
+    {
+      "id": "R1",
+      "item": "Identifies the absence of a bend relief cut at the right flange inside corner as the manufacturability concern.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "The detail callout makes this somewhat visible, but the model must read 'R0 NO RELIEF CUT' correctly and understand its implication."
+    },
+    {
+      "id": "R2",
+      "item": "States that the consequence of the missing relief is material tearing, cracking, or distortion at the bend terminus during forming.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Requires domain knowledge about what happens without relief. A common engineering fact but the exact consequence (tearing vs. cracking vs. generic 'defect') is nuanced."
+    },
+    {
+      "id": "R3",
+      "item": "Recommends adding a relief slot (rectangular or radius cut) at the inside corner as the corrective action.",
+      "expected_difficulty": "easy-medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "The standard fix is well-known; models with sheet metal knowledge should recommend it."
+    },
+    {
+      "id": "R4",
+      "item": "Does NOT flag the left flange as having the missing relief (the left flange does have relief cuts shown).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "Guard against mis-identifying which flange has the defect. Left flange notches are drawn but are small and easy to miss."
+    },
+    {
+      "id": "R5",
+      "item": "Does NOT claim the bend radius or K-factor values in the bend table are incorrect (they are consistent with the material spec).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "K=0.44 and R=2.5mm are reasonable for t=1.5mm CRS. Distractor guard."
+    }
+  ],
+
+  "qa_status": {
+    "rollouts_completed": 0,
+    "pass_counts_per_rubric": {"R1": null, "R2": null, "R3": null, "R4": null, "R5": null},
+    "note": "Run qa_runner.py with ANTHROPIC_API_KEY set to populate pass counts."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "task_id": "CAD-RL-001",
+  "version": "v1",
+  "family": "mechanical_part_gdt",
+  "title": "GD&T Missing Datum Reference",
+  "difficulty_target": "medium-hard",
+
+  "inputs": [
+    {
+      "type": "image/png",
+      "path": "../drawings/task1_gdt_missing_datum.png",
+      "description": "Single-sheet third-angle projection of a steel mounting bracket. Front, top, and right-side views. A position tolerance feature control frame on the Ø8.00 hole reads: pos | O0.25(M) | A | B | C. Datum A is defined on the bottom face (front view). Datum B is defined on the left face (front view). Datum C is referenced in the FCF but is not defined anywhere on the drawing."
+    }
+  ],
+
+  "prompt": "Identify the one GD&T defect on this drawing and state why it is non-conforming. One sentence.",
+
+  "correct_answer_summary": "The position tolerance feature control frame references datum C as a tertiary datum, but datum C is never established on the drawing—no datum feature symbol identifying datum C appears on any view. This makes the tolerance requirement unverifiable and non-conforming per standard GD&T practice.",
+
+  "rubric": [
+    {
+      "id": "R1",
+      "item": "Identifies that datum C is referenced in the feature control frame but is not defined anywhere on the drawing.",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 3,
+      "rationale": "The model must read the FCF carefully (A, B, C) and then scan all views to confirm C is absent. Subtle enough to miss."
+    },
+    {
+      "id": "R2",
+      "item": "Correctly names the affected feature as the Ø8.00 hole position tolerance (not a different feature).",
+      "expected_difficulty": "easy-medium",
+      "estimated_pass_rate_8": 5,
+      "rationale": "The hole is the only feature with a position FCF. Models may still name the wrong feature or generic 'position callout'."
+    },
+    {
+      "id": "R3",
+      "item": "Does NOT claim the drawing is missing a surface finish callout as the defect (one is present on the right-side view).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Surface finish Ra 1.6 is shown. A careless model may flag this as missing."
+    },
+    {
+      "id": "R4",
+      "item": "Does NOT misidentify the MMC modifier '(M)' on the position tolerance as the defect.",
+      "expected_difficulty": "medium-easy",
+      "estimated_pass_rate_8": 6,
+      "rationale": "The (M) modifier is valid; the defect is the undefined datum. Models familiar with GD&T should not confuse these, but some may."
+    },
+    {
+      "id": "R5",
+      "item": "Does NOT introduce a fabricated defect that is absent from the drawing (e.g., claiming a missing hole depth or wrong tolerance value).",
+      "expected_difficulty": "medium",
+      "estimated_pass_rate_8": 4,
+      "rationale": "Hallucination guard. Vision models sometimes invent additional problems."
+    }
+  ],
+
+  "qa_status": {
+    "rollouts_completed": 0,
+    "pass_counts_per_rubric": {"R1": null, "R2": null, "R3": null, "R4": null, "R5": null},
+    "note": "Run qa_runner.py with ANTHROPIC_API_KEY set to populate pass counts."
+  }
+}
