@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, NavLink } from "react-router-dom"
+import { BrowserRouter, Routes, Route, NavLink, useSearchParams } from "react-router-dom"
 import IndiaEconomyDashboard from "./components/IndiaEconomyDashboard"
 import UnemploymentModule from "./components/UnemploymentModule"
 import PoliticalModule from "./components/PoliticalModule"
@@ -8,8 +8,12 @@ import CrimesModule from "./components/CrimesModule"
 import NREGAModule from "./components/NREGAModule"
 import SexualViolenceModule from "./components/SexualViolenceModule"
 import GlobalFooter from "./components/GlobalFooter"
+import GlobalSearch from "./components/GlobalSearch"
 
 function Nav() {
+  const [searchParams] = useSearchParams();
+  const activeState = searchParams.get('state');
+
   const linkStyle = ({ isActive }) => ({
     fontFamily: "'IBM Plex Mono', monospace",
     fontSize: 11, letterSpacing: 2,
@@ -26,14 +30,14 @@ function Nav() {
       background: "#080808",
       borderBottom: "1px solid #1a1a1a",
       display: "flex", alignItems: "center",
-      padding: "0 40px", gap: 8,
+      padding: "0 24px 0 40px", gap: 4,
       position: "sticky", top: 0, zIndex: 100,
       overflowX: "auto"
     }}>
       <span style={{
         fontFamily: "'Bebas Neue', sans-serif",
         fontSize: 20, color: "#ff6b00",
-        letterSpacing: 4, marginRight: 32,
+        letterSpacing: 4, marginRight: 24,
         whiteSpace: "nowrap"
       }}>
         FACTS & TRUTH
@@ -46,6 +50,15 @@ function Nav() {
       <NavLink to="/crimes"      style={linkStyle}>CRIMES</NavLink>
       <NavLink to="/nrega"       style={linkStyle}>NREGA</NavLink>
       <NavLink to="/trafficking" style={linkStyle}>TRAFFICKING</NavLink>
+      <GlobalSearch />
+      {activeState && (
+        <span style={{
+          fontFamily: "'IBM Plex Mono', monospace", fontSize: 9,
+          color: '#ff6b00', background: '#ff6b0011',
+          border: '1px solid #ff6b0033', padding: '3px 8px',
+          borderRadius: 2, whiteSpace: 'nowrap', flexShrink: 0,
+        }}>&#9677; {activeState}</span>
+      )}
     </nav>
   )
 }
